@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PowerGuard SCADA — UPS & Battery Monitoring | Petrochemical Plant</title>
+  <meta name="description" content="SNMP-Based UPS & Battery Charger Monitoring System for Petrochemical Plants. IEC 62443 Compliant real-time SCADA dashboard." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ─── TOPBAR ─────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <polygon points="14,2 26,8 26,20 14,26 2,20 2,8" fill="none" stroke="#d97706" stroke-width="1.5"/>
+          <polygon points="14,7 21,11 21,18 14,22 7,18 7,11" fill="#d9770622" stroke="#d97706" stroke-width="1"/>
+          <circle cx="14" cy="14" r="3" fill="#d97706"/>
+        </svg>
+        <div class="brand-text">
+          <span class="brand-name">Remote Monitoring</span>
+        </div>
+      </div>
+      <div class="topbar-divider"></div>
+      <span class="plant-label">RIL-NMD</span>
+    </div>
+
+    <nav class="topbar-nav">
+      <button class="nav-btn active" data-page="dashboard">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-btn" data-page="snmpflow">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Data Flow
+      </button>
+      <button class="nav-btn" data-page="architecture">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Architecture
+      </button>
+      <button class="nav-btn" data-page="trends">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Trends
+      </button>
+      <button class="nav-btn alarm-nav" data-page="alarms">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Alarms
+        <span class="alarm-badge" id="nav-alarm-count">0</span>
+      </button>
+    </nav>
+
+    <div class="topbar-right">
+      <div class="sys-status">
+        <span class="led led-green"></span>
+        <span class="sys-status-text">ONLINE</span>
+      </div>
+      <div class="topbar-divider"></div>
+      <div class="clock-block">
+        <span class="clock-label">LOCAL</span>
+        <span class="clock-val" id="clock">--:--:--</span>
+      </div>
+      <div class="iec-tag">IEC&nbsp;62443</div>
+    </div>
+  </header>
+
+  <!-- ─── MARQUEE BAR ─────────────────────────────────────────── -->
+  <div class="marq-bar" id="marq-bar">
+    <span class="marq-tag">EVENT LOG</span>
+    <div class="marq-wrap"><div class="marq-text" id="marq-text">System initializing — loading UPS telemetry...</div></div>
+  </div>
+
+  <!-- ─── MAIN ─────────────────────────────────────────────────── -->
+  <main class="app-main">
+
+    <!-- ══════════ PAGE: DASHBOARD ══════════ -->
+    <div class="page active" id="page-dashboard">
+
+      <!-- KPI strip -->
+      <div class="kpi-strip">
+        <div class="kpi-item">
+          <div class="kpi-val" id="stat-total">12</div>
+          <div class="kpi-label">TOTAL UPS</div>
+        </div>
+        <div class="kpi-sep"></div>
+        <div class="kpi-item">
+          <div class="kpi-val kpi-green" id="stat-online">12</div>
+          <div class="kpi-label">ONLINE</div>
+          <div class="kpi-bar kpi-bar-green" style="width:100%"></div>
+        </div>
+        <div class="kpi-sep"></div>
+        <div class="kpi-item">
+          <div class="kpi-val kpi-amber" id="stat-onbattery">0</div>
+          <div class="kpi-label">ON BATTERY</div>
+        </div>
+        <div class="kpi-sep"></div>
+        <div class="kpi-item">
+          <div class="kpi-val kpi-red" id="stat-alarms">0</div>
+          <div class="kpi-label">ACTIVE ALARMS</div>
+        </div>
+        <div class="kpi-sep"></div>
+        <div class="kpi-item">
+          <div class="kpi-val kpi-gold" id="stat-avgbat">—</div>
+          <div class="kpi-label">AVG BATTERY</div>
+        </div>
+        <div class="kpi-sep"></div>
+        <div class="kpi-item">
+          <div class="kpi-val kpi-dim" id="stat-polltime">T+0s</div>
+          <div class="kpi-label">LAST POLL</div>
+        </div>
+        <div class="kpi-sep"></div>
+        <div class="kpi-item kpi-badge-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <div class="kpi-label">SNMPv3 AES-128</div>
+        </div>
+      </div>
+
+      <!-- UPS grid -->
+      <div class="ups-grid" id="ups-grid"></div>
+
+      <!-- Bottom panels -->
+      <div class="dash-bottom">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-dot panel-dot-green"></span> OT NETWORK
+          </div>
+          <div class="panel-rows">
+            <div class="panel-row"><span class="pr-key">VLAN 20</span><span class="pr-val">UPS Network · 10.10.20.0/24</span><span class="status-pip pip-ok">OK</span></div>
+            <div class="panel-row"><span class="pr-key">VLAN 30</span><span class="pr-val">Battery Chargers · 10.10.30.0/24</span><span class="status-pip pip-ok">OK</span></div>
+            <div class="panel-row"><span class="pr-key">VLAN 40</span><span class="pr-val">Management · 10.10.40.0/24</span><span class="status-pip pip-ok">OK</span></div>
+            <div class="panel-row"><span class="pr-key">VLAN 50</span><span class="pr-val">Servers · 10.10.50.0/24</span><span class="status-pip pip-ok">OK</span></div>
+            <div class="panel-row"><span class="pr-key">FIBER</span><span class="pr-val">Redundant Turbo Ring</span><span class="status-pip pip-ok">ACTIVE</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-dot panel-dot-blue"></span> INTEGRATIONS
+          </div>
+          <div class="panel-rows">
+            <div class="panel-row"><span class="int-lozenge loz-pi">PI</span><span class="pr-val">OSIsoft PI Historian</span><span class="status-pip pip-ok">SYNC</span></div>
+            <div class="panel-row"><span class="int-lozenge loz-sap">SAP</span><span class="pr-val">SAP PM / Maximo CMMS</span><span class="status-pip pip-ok">SYNC</span></div>
+            <div class="panel-row"><span class="int-lozenge loz-dcs">DCS</span><span class="pr-val">DCS Alarm System</span><span class="status-pip pip-ok">FWD</span></div>
+            <div class="panel-row"><span class="int-lozenge loz-db">DB</span><span class="pr-val">InfluxDB Time-Series</span><span class="status-pip pip-ok">RW</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-dot panel-dot-amber"></span> SECURITY STATUS
+          </div>
+          <div class="panel-rows">
+            <div class="panel-row"><span class="check-icon">✓</span><span class="pr-val">IEC 62443-3-3 Compliant</span></div>
+            <div class="panel-row"><span class="check-icon">✓</span><span class="pr-val">SNMPv3 AuthPriv · SHA/AES</span></div>
+            <div class="panel-row"><span class="check-icon">✓</span><span class="pr-val">Unidirectional Data Conduit</span></div>
+            <div class="panel-row"><span class="check-icon">✓</span><span class="pr-val">FortiGate DMZ Firewall</span></div>
+            <div class="panel-row"><span class="check-icon">✓</span><span class="pr-val">Syslog Audit — Active</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: SNMP FLOW ══════════ -->
+    <div class="page" id="page-snmpflow">
+      <div class="flow-page">
+        <div class="flow-hero">
+          <h2>SNMP Polling Cycle</h2>
+          <p>Animated walkthrough of how the monitoring server polls every UPS device and processes the data</p>
+          <div class="flow-ctrls">
+            <button class="btn-solid" id="btn-start-flow">&#9654; Run Animation</button>
+            <button class="btn-outlined btn-fault" id="btn-fault-scenario">&#9888; Fault Scenario</button>
+            <button class="btn-ghost" id="btn-reset-flow">&#8635; Reset</button>
+          </div>
+        </div>
+
+        <!-- Horizontal stepper -->
+        <div class="stepper-wrap">
+          <div class="stepper" id="stepper">
+            <div class="step-node" data-step="1">
+              <div class="step-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              </div>
+              <div class="step-connector"></div>
+              <div class="step-label">SNMP<br/>Manager</div>
+              <div class="step-sub">10.10.50.10</div>
+            </div>
+            <div class="step-node" data-step="2">
+              <div class="step-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div class="step-connector"></div>
+              <div class="step-label">OT Firewall</div>
+              <div class="step-sub">FortiGate DMZ</div>
+            </div>
+            <div class="step-node" data-step="3">
+              <div class="step-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </div>
+              <div class="step-connector"></div>
+              <div class="step-label">NMC Agent</div>
+              <div class="step-sub">APC AP9643</div>
+            </div>
+            <div class="step-node" data-step="4">
+              <div class="step-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 9 8 12 2 12"/></svg>
+              </div>
+              <div class="step-connector"></div>
+              <div class="step-label">Response</div>
+              <div class="step-sub">Values parsed</div>
+            </div>
+            <div class="step-node" data-step="5">
+              <div class="step-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              </div>
+              <div class="step-connector"></div>
+              <div class="step-label">Store &amp; Check</div>
+              <div class="step-sub">InfluxDB</div>
+            </div>
+            <div class="step-node" data-step="6">
+              <div class="step-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </div>
+              <div class="step-label">Alarm / Notify</div>
+              <div class="step-sub">Email · SMS · DCS</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail cards row -->
+        <div class="step-detail-row" id="step-detail-row">
+          <div class="step-detail inactive" data-step="1">
+            <div class="sd-num">01</div>
+            <div class="sd-title">Manager Polls</div>
+            <div class="sd-body">Monitoring server sends SNMPv3 GET request to each NMC agent at T+0, T+60s, T+120s…</div>
+          </div>
+          <div class="step-detail inactive" data-step="2">
+            <div class="sd-num">02</div>
+            <div class="sd-title">GET with OIDs</div>
+            <div class="sd-body">Encrypted SNMP GET includes target OIDs. SNMPv3 AuthPriv: SHA-256 auth + AES-128 privacy.</div>
+            <div class="sd-oid">OID: 1.3.6.1.4.1.318.1.1.2.2.1.0</div>
+          </div>
+          <div class="step-detail inactive" data-step="3">
+            <div class="sd-num">03</div>
+            <div class="sd-title">Agent Responds</div>
+            <div class="sd-body">NMC reads UPS hardware registers via internal bus and builds SNMP RESPONSE packet.</div>
+          </div>
+          <div class="step-detail inactive" data-step="4">
+            <div class="sd-num">04</div>
+            <div class="sd-title">Response Received</div>
+            <div class="sd-body">Data Processor normalizes raw integers to engineering units: V, %, °C, min.</div>
+            <div class="sd-oid" id="step4-val">InputVoltage = 414 V · Battery = 98%</div>
+          </div>
+          <div class="step-detail inactive" data-step="5">
+            <div class="sd-num">05</div>
+            <div class="sd-title">Store &amp; Threshold</div>
+            <div class="sd-body">Metrics written to InfluxDB. Alarm engine evaluates all threshold rules in real time.</div>
+          </div>
+          <div class="step-detail inactive" data-step="6">
+            <div class="sd-num">06</div>
+            <div class="sd-title">Alert Dispatched</div>
+            <div class="sd-body">Any breach triggers alarm events sent via Email, SMS, Syslog UDP-514, and DCS within 30s.</div>
+          </div>
+        </div>
+
+        <!-- OID live table -->
+        <div class="oid-card">
+          <div class="oid-card-head">
+            <span>LIVE OID RESPONSE — UPS-01 · 10.10.20.1</span>
+            <span class="oid-live-dot"></span>
+          </div>
+          <div class="oid-scroll">
+            <table class="oid-tbl">
+              <thead>
+                <tr><th>Parameter</th><th>OID</th><th>Raw</th><th>Value</th><th>State</th></tr>
+              </thead>
+              <tbody id="oid-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: ARCHITECTURE ══════════ -->
+    <div class="page" id="page-architecture">
+      <div class="arch-page">
+        <div class="arch-hero">
+          <h2>Reference Architecture</h2>
+          <p>Click any level to inspect</p>
+        </div>
+        <div class="purdue-wrap">
+          <div class="purdue-levels" id="purdue-diagram"></div>
+          <div class="arch-inspector" id="arch-detail-panel">
+            <div class="inspector-placeholder">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4a4a5a" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <p>Select a Level to inspect</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: TRENDS ══════════ -->
+    <div class="page" id="page-trends">
+      <div class="trends-page">
+        <div class="trends-topbar">
+          <h2>Historical Trends</h2>
+          <div class="trends-ctrls">
+            <select class="sel" id="trend-ups-select"></select>
+            <div class="range-tabs">
+              <button class="range-tab active" data-range="1h">1H</button>
+              <button class="range-tab" data-range="6h">6H</button>
+              <button class="range-tab" data-range="24h">24H</button>
+              <button class="range-tab" data-range="7d">7D</button>
+            </div>
+          </div>
+        </div>
+        <div class="charts-2x2">
+          <div class="chart-pane"><div class="chart-pane-head"><span class="cpane-dot" style="background:#22c55e"></span>Battery Capacity (%)</div><canvas id="chart-battery"></canvas></div>
+          <div class="chart-pane"><div class="chart-pane-head"><span class="cpane-dot" style="background:#3b82f6"></span>Input Voltage (V)</div><canvas id="chart-voltage"></canvas></div>
+          <div class="chart-pane"><div class="chart-pane-head"><span class="cpane-dot" style="background:#d97706"></span>Output Load (%)</div><canvas id="chart-load"></canvas></div>
+          <div class="chart-pane"><div class="chart-pane-head"><span class="cpane-dot" style="background:#e85555"></span>Battery Temperature (°C)</div><canvas id="chart-temp"></canvas></div>
+        </div>
+        <div class="stat-ribbon" id="trend-stats"></div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: ALARMS ══════════ -->
+    <div class="page" id="page-alarms">
+      <div class="alarms-page">
+        <div class="alarms-topbar">
+          <h2>Alarm Management</h2>
+          <div class="alarm-actions">
+            <button class="btn-trig trig-major" id="trig-onbattery">On Battery</button>
+            <button class="btn-trig trig-major" id="trig-battlow">Battery Low</button>
+            <button class="btn-trig trig-major" id="trig-utility">Utility Failure</button>
+            <button class="btn-trig trig-warn" id="trig-overload">Overload</button>
+            <div class="trig-sep"></div>
+            <button class="btn-trig trig-ghost" id="btn-ack-all">Ack All</button>
+            <button class="btn-trig trig-ghost" id="btn-clear-all">Clear All</button>
+          </div>
+        </div>
+
+        <div class="alarm-kpis">
+          <div class="akpi akpi-major"><div class="akpi-n" id="asumm-major">0</div><div class="akpi-l">MAJOR</div></div>
+          <div class="akpi akpi-warn"><div class="akpi-n" id="asumm-warning">0</div><div class="akpi-l">WARNING</div></div>
+          <div class="akpi akpi-minor"><div class="akpi-n" id="asumm-minor">0</div><div class="akpi-l">MINOR</div></div>
+          <div class="akpi akpi-ack"><div class="akpi-n" id="asumm-ack">0</div><div class="akpi-l">ACK'D</div></div>
+        </div>
+
+        <div class="alarm-tbl-wrap">
+          <table class="alarm-tbl">
+            <thead>
+              <tr>
+                <th>SEV</th><th>TIME</th><th>UPS</th><th>TYPE</th><th>OID TRAP</th><th>DESCRIPTION</th><th>STATUS</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="alarm-tbody"></tbody>
+          </table>
+          <div class="alarm-empty" id="alarm-empty">
+            <div class="ae-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="ae-title">All Clear — No Active Alarms</div>
+            <div class="ae-sub">Use the trigger buttons above to simulate fault scenarios</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
